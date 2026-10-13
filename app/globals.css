@@ -1318,34 +1318,53 @@ body::before {
 }
 
 /* ==========================================================================
-   DEALER FLOATING ACTION BUTTON (ONLY '+' ICON)
+   DEALER FLOATING ACTION BUTTON
    ========================================================================== */
-.dealer-add-fab {
-  display: none;
+@keyframes fab-appear {
+  0%   { opacity: 0; transform: scale(0.6) rotate(-30deg); }
+  70%  { transform: scale(1.08) rotate(4deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+
+@keyframes fab-pulse {
+  0%, 100% { box-shadow: 0 8px 26px rgba(0, 245, 155, 0.45); }
+  50%       { box-shadow: 0 8px 36px rgba(0, 245, 155, 0.75), 0 0 0 8px rgba(0, 245, 155, 0.12); }
+}
+
+.dealer-fab {
+  display: flex;
   position: fixed;
   bottom: 28px;
   right: 28px;
-  width: 56px;
-  height: 56px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
   background: var(--grad-mint);
   color: #040806;
-  font-size: 32px;
-  font-weight: 800;
-  line-height: 1;
   border: none;
   outline: none;
   box-shadow: 0 8px 26px rgba(0, 245, 155, 0.45);
   cursor: pointer;
-  z-index: 101;
+  z-index: 200;
   align-items: center;
   justify-content: center;
-  transition: all var(--trans-fast);
+  animation: fab-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+             fab-pulse 2.5s ease-in-out 0.8s 3;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.dealer-add-fab:hover {
-  transform: translateY(-2px) scale(1.08);
-  box-shadow: 0 10px 32px rgba(0, 245, 155, 0.65);
+.dealer-fab:hover {
+  transform: translateY(-3px) scale(1.1);
+  box-shadow: 0 12px 36px rgba(0, 245, 155, 0.7);
+}
+
+.dealer-fab:active {
+  transform: scale(0.96);
+}
+
+/* Legacy alias kept for any remaining references */
+.dealer-add-fab {
+  display: none;
 }
 
 /* Modal Form Bottom Actions */
