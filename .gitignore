@@ -1,8 +1,14 @@
-node_modules
-./node_modules
+# Dependencies
+node_modules/
+
+# Local environment (contains secrets — never commit)
+.env
 .env.local
 .env*.local
+
+# Next.js build output
 .next/
+
+# TypeScript build info
 *.tsbuildinfo
 next-env.d.ts
-

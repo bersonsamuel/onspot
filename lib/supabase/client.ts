@@ -10,15 +10,22 @@ export function isSupabaseConfigured(): boolean {
     url &&
     anonKey &&
     !url.includes('your-project') &&
-    !anonKey.includes('your-anon-key')
+    !anonKey.includes('your-anon-key') &&
+    url.startsWith('https://')
   );
 }
 
 export function getSupabaseBrowserClient() {
   if (supabaseClient) return supabaseClient;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!url || !anonKey) {
+    throw new Error(
+      'Missing Supabase env vars: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY must be set in .env.local'
+    );
+  }
 
   supabaseClient = createBrowserClient<Database>(url, anonKey);
   return supabaseClient;

@@ -84,7 +84,7 @@ export default function SupportModal() {
       <div className="modal-card" id="support-center-content">
         <div className="modal-header">
           <h3>Support Center</h3>
-          <button className="close-btn" onClick={handleClose}>
+          <button className="close-btn" aria-label="Close" onClick={handleClose}>
             ✕
           </button>
         </div>

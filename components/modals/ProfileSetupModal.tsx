@@ -13,9 +13,13 @@ export default function ProfileSetupModal() {
 
   useEffect(() => {
     if (activeModal === 'profile-modal') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(userProfile.name);
+       
       setPhone(userProfile.phone);
+       
       setCity(userProfile.city);
+       
       setUpiId(userProfile.upiId);
     }
   }, [activeModal, userProfile]);
@@ -59,7 +63,7 @@ export default function ProfileSetupModal() {
             </svg>
             Profile &amp; Payout Settings
           </h3>
-          <button className="close-btn" onClick={() => closeModal('profile-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('profile-modal')}>
             ✕
           </button>
         </div>

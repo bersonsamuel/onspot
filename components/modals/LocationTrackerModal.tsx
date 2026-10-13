@@ -26,7 +26,7 @@ export default function LocationTrackerModal() {
       <div className="modal-card">
         <div className="modal-header">
           <h3>Worker Location</h3>
-          <button className="close-btn" onClick={() => closeModal('location-tracker-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('location-tracker-modal')}>
             ✕
           </button>
         </div>

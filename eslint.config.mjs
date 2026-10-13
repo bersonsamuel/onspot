@@ -1,22 +1,10 @@
-import nextPlugin from "@next/eslint-plugin-next";
+// @ts-check
+import nextConfig from 'eslint-config-next';
 
 const eslintConfig = [
+  ...nextConfig,
   {
-    plugins: {
-      "@next/next": nextPlugin,
-    },
-    rules: {
-      ...nextPlugin.configs["recommended"].rules,
-      ...nextPlugin.configs["core-web-vitals"].rules,
-    },
-  },
-  {
-    ignores: [
-      ".next/**",
-      "node_modules/**",
-      "backend/**",
-      "*.js",
-    ],
+    ignores: ['.next/**', 'node_modules/**', 'out/**', 'build/**'],
   },
 ];
 

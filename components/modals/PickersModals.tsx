@@ -148,7 +148,7 @@ export default function PickersModals() {
         <div className="modal-card" style={{ maxWidth: '320px' }}>
           <div className="modal-header">
             <h3>📅 Select Date</h3>
-            <button className="close-btn" onClick={() => closeModal('date-picker-modal')}>
+            <button className="close-btn" aria-label="Close" onClick={() => closeModal('date-picker-modal')}>
               ✕
             </button>
           </div>
@@ -247,7 +247,7 @@ export default function PickersModals() {
         <div className="modal-card" style={{ maxWidth: '340px' }}>
           <div className="modal-header">
             <h3>🕐 Shift Timing</h3>
-            <button className="close-btn" onClick={() => closeModal('time-picker-modal')}>
+            <button className="close-btn" aria-label="Close" onClick={() => closeModal('time-picker-modal')}>
               ✕
             </button>
           </div>
@@ -360,7 +360,7 @@ export default function PickersModals() {
         <div className="modal-card" style={{ maxWidth: '320px' }}>
           <div className="modal-header">
             <h3>🕐 Reporting Time</h3>
-            <button className="close-btn" onClick={() => closeModal('reporting-time-modal')}>
+            <button className="close-btn" aria-label="Close" onClick={() => closeModal('reporting-time-modal')}>
               ✕
             </button>
           </div>
@@ -452,7 +452,7 @@ export default function PickersModals() {
         >
           <div className="modal-header">
             <h3>🔍 Select Work Category</h3>
-            <button className="close-btn" onClick={() => closeModal('category-picker-modal')}>
+            <button className="close-btn" aria-label="Close" onClick={() => closeModal('category-picker-modal')}>
               ✕
             </button>
           </div>
@@ -514,7 +514,7 @@ export default function PickersModals() {
         >
           <div className="modal-header">
             <h3>📍 Select Location</h3>
-            <button className="close-btn" onClick={() => closeModal('location-picker-modal')}>
+            <button className="close-btn" aria-label="Close" onClick={() => closeModal('location-picker-modal')}>
               ✕
             </button>
           </div>

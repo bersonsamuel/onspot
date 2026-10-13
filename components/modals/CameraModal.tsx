@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -30,10 +31,15 @@ export default function CameraModal() {
 
   useEffect(() => {
     if (activeModal === 'camera-modal') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCapturedImg(null);
+       
       setIsFaceDetected(false);
+       
       setStatusText('Position your face inside the guide');
+       
       setStatusColor('var(--text-primary)');
+       
       setGuideBorderColor('rgba(255, 255, 255, 0.4)');
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -167,7 +173,7 @@ export default function CameraModal() {
       <div className="modal-card" style={{ textAlign: 'center' }}>
         <div className="modal-header">
           <h3>Set Profile Photo</h3>
-          <button className="close-btn" onClick={handleClose}>
+          <button className="close-btn" aria-label="Close" onClick={handleClose}>
             ✕
           </button>
         </div>

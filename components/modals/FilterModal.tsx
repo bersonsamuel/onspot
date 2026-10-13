@@ -33,13 +33,21 @@ export default function FilterModal() {
 
   useEffect(() => {
     if (activeModal === 'filter-modal') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDraftLocation(advancedFilters.location);
+       
       setDraftDistance(advancedFilters.distanceKm);
+       
       setDraftCategories(new Set(advancedFilters.categories));
+       
       setDraftDate(advancedFilters.dateFilter);
+       
       setDraftSalaryMin(advancedFilters.salaryMin != null ? String(advancedFilters.salaryMin) : '');
+       
       setDraftSalaryMax(advancedFilters.salaryMax != null ? String(advancedFilters.salaryMax) : '');
+       
       setDraftDuration(advancedFilters.duration);
+       
       setDraftGender(advancedFilters.gender || 'any');
     }
   }, [activeModal, advancedFilters]);
@@ -156,7 +164,7 @@ export default function FilterModal() {
             </svg>
             Filter Shifts
           </h3>
-          <button className="close-btn" onClick={() => closeModal('filter-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('filter-modal')}>
             ✕
           </button>
         </div>

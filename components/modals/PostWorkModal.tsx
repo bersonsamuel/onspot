@@ -156,7 +156,6 @@ export default function PostWorkModal() {
       rawPay: parseInt(payAmount, 10) || 800,
       loc: `${venueName}, ${location}`,
       date: date,
-      dateType: 'upcoming',
       time: `${startTime} – ${endTime}`,
       slotsTotal: parseInt(slots, 10),
       slotsFilled: 0,
@@ -177,7 +176,7 @@ export default function PostWorkModal() {
   };
 
   return (
-    <div className="modal-overlay open" id="post-modal">
+    <div role="dialog" aria-modal="true" className="modal-overlay open" id="post-modal">
       <div className="modal-card">
         <div
           className="modal-header"

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from 'react';
 import { Job, Application, UserProfile } from '@/types';
-import { INITIAL_SHIFTS, INITIAL_DEALER_POSTS } from '@/lib/initialData';
+import { getDateLabel } from '@/lib/initialData';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
 
 export interface AdvancedFilters {
@@ -63,20 +63,21 @@ export interface AppContextType {
   toggleBookmark: (jobId: string) => Promise<void>;
   addNewJob: (newJob: Job) => Promise<void>;
   login: (email?: string, password?: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
+  signup: (email: string, password: string, name?: string, role?: 'seeker' | 'dealer') => Promise<void>;
   logout: () => Promise<void>;
   filteredJobs: Job[];
 }
 
-export const defaultUserProfile: UserProfile = {
-  id: 'user_default',
-  name: 'Franklin Stanly',
-  phone: '+91 98402 88192',
-  email: 'franklin@example.com',
+/** Minimal public profile shape shown to unauthenticated UI */
+const EMPTY_PROFILE: UserProfile = {
+  id: '',
+  name: '',
+  phone: '',
+  email: '',
   city: 'Chennai, Tamil Nadu',
-  upiId: 'franklin@okaxis',
+  upiId: '',
   role: 'seeker',
-  rating: 4.9,
+  rating: 5.0,
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=160&q=80',
 };
 
@@ -98,8 +99,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<'seeker' | 'dealer'>('seeker');
-  const [shifts, setShifts] = useState<Job[]>(INITIAL_SHIFTS);
-  const [dealerPosts, setDealerPosts] = useState<Job[]>(INITIAL_DEALER_POSTS);
+  const [shifts, setShifts] = useState<Job[]>([]);
+  const [dealerPosts, setDealerPosts] = useState<Job[]>([]);
   const [appliedJobs, setAppliedJobs] = useState<Application[]>([]);
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
   const [bookmarkedJobIds, setBookmarkedJobIds] = useState<Set<string>>(new Set());
@@ -108,8 +109,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activeFilterChips, setActiveFilterChips] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<string>('recommended');
-  const [userProfile, setUserProfile] = useState<UserProfile>(defaultUserProfile);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [userProfile, setUserProfile] = useState<UserProfile>(EMPTY_PROFILE);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [activeSection, setActiveSection] = useState<'home' | 'other' | 'saved'>('home');
   const [activeModalShift, setActiveModalShift] = useState<Job | null>(null);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedFilters>(defaultAdvancedFilters);
 
   // Map Supabase Job Row to Frontend Job Type
+   
   const mapDbRowToJob = useCallback((row: any): Job => ({
     id: row.id,
     category: row.category,
@@ -135,8 +137,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     loc: row.location,
     lat: row.lat || undefined,
     lng: row.lng || undefined,
-    date: row.date,
-    dateType: row.date_type || 'upcoming',
+    // Compute human-readable date label from start_at; fall back to stored date text
+    date: row.start_at ? getDateLabel(row.start_at) : (row.date || 'TBD'),
+    startAt: row.start_at || undefined,
+    endAt: row.end_at || undefined,
     time: row.time,
     durationHours: row.duration_hours ? Number(row.duration_hours) : undefined,
     slotsTotal: Number(row.slots_total) || 1,
@@ -172,13 +176,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
           upiId: profile.upi_id || '',
           role: profile.role === 'dealer' ? 'dealer' : 'seeker',
           rating: Number(profile.rating) || 5.0,
-          avatarUrl: profile.avatar_url || defaultUserProfile.avatarUrl,
+          avatarUrl: profile.avatar_url || EMPTY_PROFILE.avatarUrl,
+          walletBalance: Number(profile.wallet_balance) || 0,
         };
         setUserProfile(updated);
         setUserRole(updated.role === 'dealer' ? 'dealer' : 'seeker');
-        try {
-          localStorage.setItem('onspot_profile', JSON.stringify(updated));
-        } catch {}
       } else {
         // Upsert default profile row if trigger was delayed
         const defaultName = email ? email.split('@')[0] : 'User';
@@ -204,17 +206,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
             upiId: inserted.upi_id || '',
             role: inserted.role === 'dealer' ? 'dealer' : 'seeker',
             rating: Number(inserted.rating) || 5.0,
-            avatarUrl: inserted.avatar_url || defaultUserProfile.avatarUrl,
+            avatarUrl: inserted.avatar_url || EMPTY_PROFILE.avatarUrl,
           };
           setUserProfile(updated);
           setUserRole(updated.role === 'dealer' ? 'dealer' : 'seeker');
-          try {
-            localStorage.setItem('onspot_profile', JSON.stringify(updated));
-          } catch {}
         }
       }
     } catch (e) {
-      console.warn('Sync profile error:', e);
+      console.error('Sync profile error:', e);
     }
   }, []);
 
@@ -228,27 +227,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .eq('user_id', userId)
         .order('applied_at', { ascending: false });
 
-      if (!error && apps && apps.length > 0) {
-        const mapped: Application[] = apps.map((a: any) => ({
-          id: a.id,
-          jobId: a.job_id,
-          userId: a.user_id,
-          userName: userProfile.name,
-          userPhone: userProfile.phone,
-          status: a.status || 'Applied',
-          appliedAt: a.applied_at,
-          job: a.jobs ? mapDbRowToJob(a.jobs) : undefined,
-        }));
-        setAppliedJobs(mapped);
-        setAppliedJobIds(new Set(mapped.map((m) => m.jobId)));
-        try {
-          localStorage.setItem('onspot_applied_jobs', JSON.stringify(mapped));
-        } catch {}
+      if (error) {
+        console.error('Sync applications error:', error);
+        return;
       }
+
+      // Always update state, even for empty results (clears stale data)
+       
+      const mapped: Application[] = (apps || []).map((a: any) => ({
+        id: a.id,
+        jobId: a.job_id,
+        userId: a.user_id,
+        status: a.status || 'Applied',
+        appliedAt: a.applied_at,
+        notes: a.notes || null,
+        job: a.jobs ? mapDbRowToJob(a.jobs) : undefined,
+      }));
+      setAppliedJobs(mapped);
+      setAppliedJobIds(new Set(mapped.map((m) => m.jobId)));
     } catch (e) {
-      console.warn('Sync applications error:', e);
+      console.error('Sync applications error:', e);
     }
-  }, [mapDbRowToJob, userProfile.name, userProfile.phone]);
+  }, [mapDbRowToJob]);
 
   const syncUserBookmarks = useCallback(async (userId: string) => {
     if (!isSupabaseConfigured() || !isUUID(userId)) return;
@@ -259,15 +259,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .select('job_id')
         .eq('user_id', userId);
 
-      if (!error && saved) {
-        const ids = new Set(saved.map((s: any) => s.job_id));
-        setBookmarkedJobIds(ids);
-        try {
-          localStorage.setItem('onspot_bookmarks', JSON.stringify(Array.from(ids)));
-        } catch {}
+      if (error) {
+        console.error('Sync bookmarks error:', error);
+        return;
       }
+
+      // Always update (even empty result clears stale bookmarks)
+       
+      const ids = new Set((saved || []).map((s: any) => s.job_id as string));
+      setBookmarkedJobIds(ids);
     } catch (e) {
-      console.warn('Sync bookmarks error:', e);
+      console.error('Sync bookmarks error:', e);
     }
   }, []);
 
@@ -281,46 +283,36 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .eq('dealer_id', userId)
         .order('created_at', { ascending: false });
 
-      if (!error && posts && posts.length > 0) {
-        setDealerPosts(posts.map(mapDbRowToJob));
+      if (error) {
+        console.error('Sync dealer posts error:', error);
+        return;
       }
+
+      // Always set state (empty result clears stale data)
+      setDealerPosts((posts || []).map(mapDbRowToJob));
     } catch (e) {
-      console.warn('Sync dealer posts error:', e);
+      console.error('Sync dealer posts error:', e);
     }
   }, [mapDbRowToJob]);
 
   // Hydrate from localStorage & Supabase
   useEffect(() => {
-    // 1. Initial Local Storage Hydration
+    // 1. Initial Local Storage Hydration (theme only — no cached auth/profile/data)
     try {
-      const savedApplied = localStorage.getItem('onspot_applied_jobs');
-      if (savedApplied) {
-        const parsed = JSON.parse(savedApplied);
-        setAppliedJobs(parsed);
-        setAppliedJobIds(new Set(parsed.map((a: Application) => a.jobId)));
-      }
-      const savedCompleted = localStorage.getItem('onspot_completed_jobs');
-      if (savedCompleted) {
-        setCompletedJobs(JSON.parse(savedCompleted));
-      }
-      const savedBookmarks = localStorage.getItem('onspot_bookmarks');
-      if (savedBookmarks) {
-        setBookmarkedJobIds(new Set(JSON.parse(savedBookmarks)));
-      }
-      const savedProfile = localStorage.getItem('onspot_profile');
-      if (savedProfile) {
-        setUserProfile((prev) => ({ ...prev, ...JSON.parse(savedProfile) }));
-      }
-      const savedAuth = localStorage.getItem('onspot_auth');
-      if (savedAuth !== null) {
-        setIsAuthenticated(savedAuth === 'true');
-      }
       const savedTheme = localStorage.getItem('onspot-theme') as 'dark' | 'light';
-      if (savedTheme) {
-        setTheme(savedTheme);
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setThemeState(savedTheme);
+        if (typeof document !== 'undefined') {
+          if (savedTheme === 'light') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          } else {
+            document.documentElement.removeAttribute('data-theme');
+          }
+        }
       }
     } catch (e) {
-      console.warn('Storage sync error:', e);
+      console.error('Storage sync error:', e);
     }
 
     // 2. Supabase Integration
@@ -331,12 +323,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       supabase
         .from('jobs')
         .select('*')
+        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .then(({ data: jobsData, error }) => {
-          if (!error && jobsData && jobsData.length > 0) {
+          if (!error && jobsData) {
             const mapped = jobsData.map(mapDbRowToJob);
             setShifts(mapped);
-            setDealerPosts(mapped);
           }
         });
 
@@ -349,8 +341,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
           (payload) => {
             if (payload.eventType === 'INSERT') {
               const newJob = mapDbRowToJob(payload.new);
+              // Deduplicate by id
               setShifts((prev) => [newJob, ...prev.filter((j) => j.id !== newJob.id)]);
-              setDealerPosts((prev) => [newJob, ...prev.filter((j) => j.id !== newJob.id)]);
             } else if (payload.eventType === 'UPDATE') {
               const updatedJob = mapDbRowToJob(payload.new);
               setShifts((prev) => prev.map((j) => (j.id === updatedJob.id ? updatedJob : j)));
@@ -363,14 +355,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
         )
         .subscribe();
 
-      // Check active auth session
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session?.user) {
+      // Check active auth session using getUser() (not getSession())
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
           setIsAuthenticated(true);
-          syncUserProfile(session.user.id, session.user.email);
-          syncUserApplications(session.user.id);
-          syncUserBookmarks(session.user.id);
-          syncDealerPosts(session.user.id);
+          syncUserProfile(user.id, user.email);
+          syncUserApplications(user.id);
+          syncUserBookmarks(user.id);
+          syncDealerPosts(user.id);
+        } else {
+          setIsAuthenticated(false);
         }
       });
 
@@ -380,9 +374,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } = supabase.auth.onAuthStateChange((event, session) => {
         const isAuth = Boolean(session?.user);
         setIsAuthenticated(isAuth);
-        try {
-          localStorage.setItem('onspot_auth', isAuth ? 'true' : 'false');
-        } catch {}
 
         if (session?.user) {
           syncUserProfile(session.user.id, session.user.email);
@@ -390,10 +381,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
           syncUserBookmarks(session.user.id);
           syncDealerPosts(session.user.id);
         } else if (event === 'SIGNED_OUT') {
-          setUserProfile(defaultUserProfile);
+          // Clear all user state on sign out
+          setUserProfile(EMPTY_PROFILE);
           setAppliedJobs([]);
           setAppliedJobIds(new Set());
           setBookmarkedJobIds(new Set());
+          setDealerPosts([]);
+          setCompletedJobs([]);
         }
       });
 
@@ -402,6 +396,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         authSubscription.unsubscribe();
       };
     }
+  // setTheme is stable, mapDbRowToJob and sync* are memoized
+   
   }, [mapDbRowToJob, syncDealerPosts, syncUserApplications, syncUserBookmarks, syncUserProfile]);
 
   const setTheme = (t: 'dark' | 'light') => {
@@ -515,245 +511,291 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const applyForJob = async (job: Job) => {
+    if (!isAuthenticated) {
+      openModal('login-modal');
+      showToast('Please sign in to apply for a shift.');
+      return;
+    }
+
     if (appliedJobIds.has(job.id)) {
       showToast('⚠️ You have already applied for this shift!');
       return;
     }
 
-    const newApp: Application = {
-      id: `app-${Date.now()}`,
-      jobId: job.id,
-      userId: userProfile.id,
-      userName: userProfile.name,
-      userPhone: userProfile.phone,
-      status: 'Applied',
-      appliedAt: new Date().toISOString(),
-      job: job,
-    };
-
-    const updatedApps = [newApp, ...appliedJobs];
-    const updatedIds = new Set(appliedJobIds);
-    updatedIds.add(job.id);
-    setAppliedJobs(updatedApps);
-    setAppliedJobIds(updatedIds);
-
-    // Increment slots locally
-    setShifts((prev) =>
-      prev.map((s) => (s.id === job.id ? { ...s, slotsFilled: s.slotsFilled + 1 } : s))
-    );
-
     try {
-      localStorage.setItem('onspot_applied_jobs', JSON.stringify(updatedApps));
-    } catch {}
+      const res = await fetch('/api/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ job_id: job.id }),
+      });
 
-    // Cloud database mutation via API route
-    if (isSupabaseConfigured()) {
-      try {
-        await fetch('/api/applications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            job_id: job.id,
-            user_id: userProfile.id,
-          }),
-        });
-      } catch (err) {
-        console.warn('Application sync error:', err);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        if (res.status === 409) {
+          showToast('⚠️ You have already applied for this shift.');
+        } else {
+          showToast(`⚠️ Couldn't apply: ${body.error || 'Please try again.'}`);
+        }
+        return;
       }
-    }
 
-    closeModal('shift-modal');
-    showToast(`✅ Successfully applied for "${job.title}"!`);
+      const created = await res.json();
+      const newApp: Application = {
+        id: created.id || `app-${Date.now()}`,
+        jobId: job.id,
+        userId: userProfile.id,
+        status: 'Applied',
+        appliedAt: created.applied_at || new Date().toISOString(),
+        job,
+      };
+
+      setAppliedJobs((prev) => [newApp, ...prev]);
+      setAppliedJobIds((prev) => new Set([...prev, job.id]));
+      closeModal('shift-modal');
+      showToast(`✅ Successfully applied for "${job.title}"!`);
+    } catch (err) {
+      console.error('Application error:', err);
+      showToast("We couldn't submit your application. Please try again.");
+    }
   };
 
   const toggleBookmark = async (jobId: string) => {
+    if (!isAuthenticated) {
+      openModal('login-modal');
+      showToast('Please sign in to save shifts.');
+      return;
+    }
+
+    if (!isSupabaseConfigured() || !isUUID(jobId) || !isUUID(userProfile.id)) return;
+
     const isBookmarked = bookmarkedJobIds.has(jobId);
+    // Optimistic update
     setBookmarkedJobIds((prev) => {
       const next = new Set(prev);
       if (next.has(jobId)) {
         next.delete(jobId);
-        showToast('Bookmark removed');
       } else {
         next.add(jobId);
-        showToast('Shift saved to bookmarks!');
       }
-      try {
-        localStorage.setItem('onspot_bookmarks', JSON.stringify(Array.from(next)));
-      } catch {}
       return next;
     });
 
-    if (isSupabaseConfigured() && isUUID(jobId) && isUUID(userProfile.id)) {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        if (isBookmarked) {
-          await supabase
-            .from('saved_jobs')
-            .delete()
-            .match({ user_id: userProfile.id, job_id: jobId });
-        } else {
-          await supabase.from('saved_jobs').insert({
-            user_id: userProfile.id,
-            job_id: jobId,
-          });
-        }
-      } catch (err) {
-        console.warn('Supabase bookmark sync error:', err);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      if (isBookmarked) {
+        const { error } = await supabase
+          .from('saved_jobs')
+          .delete()
+          .match({ user_id: userProfile.id, job_id: jobId });
+        if (error) throw error;
+        showToast('Bookmark removed.');
+      } else {
+        const { error } = await supabase.from('saved_jobs').insert({
+          user_id: userProfile.id,
+          job_id: jobId,
+        });
+        if (error) throw error;
+        showToast('Shift saved to bookmarks!');
       }
+    } catch (err) {
+      console.error('Bookmark error:', err);
+      // Rollback optimistic update
+      setBookmarkedJobIds((prev) => {
+        const next = new Set(prev);
+        if (isBookmarked) {
+          next.add(jobId);
+        } else {
+          next.delete(jobId);
+        }
+        return next;
+      });
+      showToast("We couldn't update your bookmark. Please try again.");
     }
   };
 
   const addNewJob = async (newJob: Job) => {
-    // Local optimistic update
-    setShifts((prev) => [newJob, ...prev]);
-    setDealerPosts((prev) => [newJob, ...prev]);
-    showToast('✅ Work requirement posted successfully!');
+    if (!isAuthenticated) {
+      openModal('login-modal');
+      showToast('Please sign in to post a job.');
+      return;
+    }
 
-    if (isSupabaseConfigured()) {
-      try {
-        const res = await fetch('/api/jobs', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title: newJob.title,
-            category: newJob.category,
-            category_display: newJob.categoryDisplay,
-            dealer_name: newJob.dealerName,
-            dealer_rating: newJob.dealerRating,
-            pay: newJob.pay,
-            pay_type: newJob.payType,
-            raw_pay: newJob.rawPay,
-            location: newJob.loc,
-            date: newJob.date,
-            date_type: newJob.dateType,
-            time: newJob.time,
-            slots_total: newJob.slotsTotal,
-            urgent: newJob.urgent,
-            instant_pay: newJob.instantPay,
-            gender_req: newJob.genderReq,
-            perks: newJob.perks || [],
-            requirements: newJob.requirements,
-            dress_code: newJob.dressCode,
-            description: newJob.description,
-            phone: newJob.phone,
-            dealer_id: isUUID(userProfile.id) ? userProfile.id : undefined,
-          }),
-        });
+    if (!isSupabaseConfigured()) {
+      showToast('⚠️ Database not configured. Please try again later.');
+      return;
+    }
 
-        if (res.ok) {
-          const created = await res.json();
-          if (created?.id) {
-            const mapped = mapDbRowToJob(created);
-            // Replace optimistic job ID with generated database UUID
-            setShifts((prev) => prev.map((j) => (j.id === newJob.id ? mapped : j)));
-            setDealerPosts((prev) => prev.map((j) => (j.id === newJob.id ? mapped : j)));
-          }
-        }
-      } catch (err) {
-        console.warn('Supabase job post sync error:', err);
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: newJob.title,
+          category: newJob.category,
+          category_display: newJob.categoryDisplay,
+          pay: newJob.pay,
+          pay_type: newJob.payType,
+          raw_pay: newJob.rawPay,
+          location: newJob.loc,
+          date: newJob.date,
+          start_at: newJob.startAt,
+          time: newJob.time,
+          slots_total: newJob.slotsTotal,
+          urgent: newJob.urgent,
+          instant_pay: newJob.instantPay,
+          gender_req: newJob.genderReq,
+          perks: newJob.perks || [],
+          requirements: newJob.requirements,
+          dress_code: newJob.dressCode,
+          description: newJob.description,
+          phone: newJob.phone,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        showToast(`⚠️ Couldn't post job: ${body.error || 'Please try again.'}`);
+        return;
       }
+
+      const created = await res.json();
+      if (created?.id) {
+        const mapped = mapDbRowToJob(created);
+        // Add to shifts and dealer posts; realtime will also fire but dedup by id
+        setShifts((prev) => [mapped, ...prev.filter((j) => j.id !== mapped.id)]);
+        setDealerPosts((prev) => [mapped, ...prev.filter((j) => j.id !== mapped.id)]);
+      }
+      showToast('✅ Work requirement posted successfully!');
+    } catch (err) {
+      console.error('Add job error:', err);
+      showToast("We couldn't post your job. Please try again.");
     }
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
-    setUserProfile((prev) => {
-      const updated = { ...prev, ...data };
-      try {
-        localStorage.setItem('onspot_profile', JSON.stringify(updated));
-      } catch {}
-      return updated;
-    });
-    showToast('Profile updated successfully!');
+    if (!isSupabaseConfigured() || !isUUID(userProfile.id)) {
+      showToast('⚠️ Could not save profile. Please try again.');
+      return;
+    }
 
-    if (isSupabaseConfigured() && isUUID(userProfile.id)) {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        await supabase
-          .from('profiles')
-          .update({
-            name: data.name,
-            phone: data.phone,
-            city: data.city,
-            upi_id: data.upiId,
-            avatar_url: data.avatarUrl,
-          })
-          .eq('id', userProfile.id);
-      } catch (err) {
-        console.warn('Supabase profile update sync error:', err);
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: data.name,
+          phone: data.phone,
+          city: data.city,
+          upi_id: data.upiId,
+          avatar_url: data.avatarUrl,
+        })
+        .eq('id', userProfile.id);
+
+      if (error) {
+        showToast(`⚠️ Couldn't update profile: ${error.message}`);
+        return;
       }
+
+      setUserProfile((prev) => ({ ...prev, ...data }));
+      showToast('Profile updated successfully!');
+    } catch (err) {
+      console.error('Profile update error:', err);
+      showToast("We couldn't save your profile. Please try again.");
     }
   };
 
   const login = async (email?: string, password?: string) => {
-    if (isSupabaseConfigured() && email && password) {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) {
-          if (error.message.toLowerCase().includes('email not confirmed')) {
-            showToast('⚠️ Email not confirmed. Please check your inbox.');
-          } else {
-            showToast(`⚠️ Login failed: ${error.message}`);
-          }
-          return;
-        }
-
-        if (data.user) {
-          setIsAuthenticated(true);
-          await syncUserProfile(data.user.id, data.user.email);
-          await syncUserApplications(data.user.id);
-          await syncUserBookmarks(data.user.id);
-          await syncDealerPosts(data.user.id);
-          showToast(`Welcome back, ${data.user.email?.split('@')[0] || userProfile.name}!`);
-          closeModal('login-modal');
-          return;
-        }
-      } catch (err: any) {
-        console.warn('Supabase login error:', err);
-      }
+    if (!isSupabaseConfigured()) {
+      showToast('⚠️ Login is not available right now. Please try again later.');
+      return;
     }
 
-    setIsAuthenticated(true);
+    if (!email || !password) {
+      showToast('⚠️ Please enter your email and password.');
+      return;
+    }
+
     try {
-      localStorage.setItem('onspot_auth', 'true');
-    } catch {}
-    closeModal('login-modal');
-    showToast(`Welcome back, ${userProfile.name}!`);
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        if (error.message.toLowerCase().includes('email not confirmed')) {
+          showToast('⚠️ Please confirm your email first. Check your inbox for a link from us.');
+        } else if (error.message.toLowerCase().includes('invalid login credentials')) {
+          showToast('⚠️ Incorrect email or password. Please try again.');
+        } else {
+          showToast(`⚠️ Sign in failed: ${error.message}`);
+        }
+        return;
+      }
+
+      if (data.user) {
+        setIsAuthenticated(true);
+        await syncUserProfile(data.user.id, data.user.email);
+        await syncUserApplications(data.user.id);
+        await syncUserBookmarks(data.user.id);
+        await syncDealerPosts(data.user.id);
+        showToast(`Welcome back, ${data.user.email?.split('@')[0] || 'there'}!`);
+        closeModal('login-modal');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      console.error('Login error:', err);
+      showToast(`⚠️ Sign in failed: ${msg}`);
+    }
   };
 
-  const signup = async (email: string, password: string, name?: string) => {
-    if (isSupabaseConfigured() && email && password) {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              name: name || email.split('@')[0],
-            },
+  const signup = async (email: string, password: string, name?: string, role: 'seeker' | 'dealer' = 'seeker') => {
+    if (!isSupabaseConfigured()) {
+      showToast('⚠️ Sign up is not available right now. Please try again later.');
+      return;
+    }
+
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name || email.split('@')[0],
+            // role is set here so handle_new_user can read it;
+            // DB trigger caps it at seeker/dealer (cannot self-promote to admin)
+            role,
           },
-        });
+        },
+      });
 
-        if (error) {
-          showToast(`⚠️ Signup error: ${error.message}`);
-          return;
+      if (error) {
+        if (error.message.toLowerCase().includes('already registered')) {
+          showToast('⚠️ This email is already registered. Try signing in instead.');
+        } else {
+          showToast(`⚠️ Sign up failed: ${error.message}`);
         }
-
-        if (data.user) {
-          setIsAuthenticated(true);
-          await syncUserProfile(data.user.id, data.user.email);
-          showToast(`🎉 Account created! Welcome, ${name || email.split('@')[0]}!`);
-          closeModal('login-modal');
-          return;
-        }
-      } catch (err: any) {
-        showToast(`⚠️ Signup error: ${err?.message || 'Failed'}`);
+        return;
       }
+
+      // If email confirmation is required, data.session will be null
+      if (data.user && !data.session) {
+        showToast('📧 Check your email to confirm your account before signing in.');
+        closeModal('login-modal');
+        return;
+      }
+
+      if (data.user && data.session) {
+        setIsAuthenticated(true);
+        await syncUserProfile(data.user.id, data.user.email);
+        showToast(`🎉 Welcome to OnSpot, ${name || email.split('@')[0]}!`);
+        closeModal('login-modal');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'An unexpected error occurred.';
+      console.error('Signup error:', err);
+      showToast(`⚠️ Sign up failed: ${msg}`);
     }
   };
 
@@ -763,21 +805,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const supabase = getSupabaseBrowserClient();
         await supabase.auth.signOut();
       } catch (err) {
-        console.warn('Supabase signOut error:', err);
+        console.error('Sign out error:', err);
       }
     }
 
+    // Clear all user state
     setIsAuthenticated(false);
-    setUserProfile(defaultUserProfile);
+    setUserProfile(EMPTY_PROFILE);
     setAppliedJobs([]);
     setAppliedJobIds(new Set());
     setBookmarkedJobIds(new Set());
+    setDealerPosts([]);
+    setCompletedJobs([]);
 
+    // Clear all onspot_* localStorage keys; keep theme
     try {
-      localStorage.setItem('onspot_auth', 'false');
-      localStorage.removeItem('onspot_profile');
-      localStorage.removeItem('onspot_applied_jobs');
-      localStorage.removeItem('onspot_bookmarks');
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('onspot_')) keysToRemove.push(key);
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     } catch {}
 
     closeProfileDrawer();
@@ -786,7 +834,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Filtered dataset
   const filteredJobs = useMemo(() => {
-    const dataset = userRole === 'seeker' ? shifts : dealerPosts;
+    const dataset = userRole === 'dealer' ? dealerPosts : shifts;
 
     let result = activeCategory === 'All'
       ? dataset
@@ -802,7 +850,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     if (activeFilterChips.size > 0) {
       if (activeFilterChips.has('today')) {
-        result = result.filter((item) => item.dateType === 'today');
+        result = result.filter((item) => item.date === 'Today');
       }
       if (activeFilterChips.has('highpay')) {
         result = result.filter((item) => (item.rawPay || 0) >= 800);
@@ -846,7 +894,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       result = result.filter((item) => af.categories.includes(item.category));
     }
     if (af.dateFilter) {
-      result = result.filter((item) => item.dateType === af.dateFilter);
+      result = result.filter((item) => item.date === af.dateFilter);
     }
     if (af.duration) {
       result = result.filter((item) => {
@@ -951,3 +999,4 @@ export function useApp() {
   }
   return context;
 }
+
