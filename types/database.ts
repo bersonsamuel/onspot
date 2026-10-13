@@ -69,7 +69,8 @@ export interface Database {
           lat: number | null;
           lng: number | null;
           date: string;
-          date_type: string | null;
+          start_at: string;
+          end_at: string | null;
           time: string;
           reporting_time: string | null;
           duration_hours: number | null;
@@ -104,7 +105,8 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           date: string;
-          date_type?: string | null;
+          start_at: string;
+          end_at?: string | null;
           time: string;
           reporting_time?: string | null;
           duration_hours?: number | null;
@@ -139,7 +141,8 @@ export interface Database {
           lat?: number | null;
           lng?: number | null;
           date?: string;
-          date_type?: string | null;
+          start_at?: string;
+          end_at?: string | null;
           time?: string;
           reporting_time?: string | null;
           duration_hours?: number | null;

@@ -156,7 +156,6 @@ export default function PostWorkModal() {
       rawPay: parseInt(payAmount, 10) || 800,
       loc: `${venueName}, ${location}`,
       date: date,
-      dateType: 'upcoming',
       time: `${startTime} – ${endTime}`,
       slotsTotal: parseInt(slots, 10),
       slotsFilled: 0,

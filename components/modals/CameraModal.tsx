@@ -30,10 +30,15 @@ export default function CameraModal() {
 
   useEffect(() => {
     if (activeModal === 'camera-modal') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCapturedImg(null);
+       
       setIsFaceDetected(false);
+       
       setStatusText('Position your face inside the guide');
+       
       setStatusColor('var(--text-primary)');
+       
       setGuideBorderColor('rgba(255, 255, 255, 0.4)');
 
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {

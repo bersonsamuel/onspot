@@ -14,8 +14,12 @@ export interface Job {
   lat?: number;
   lng?: number;
   durationHours?: number;
+  /** ISO timestamp; replaces the old text `date` + `date_type` columns */
+  startAt?: string;
+  /** ISO timestamp for shift end (optional) */
+  endAt?: string;
+  /** Human-readable date label derived from startAt ("Today" / "Tomorrow" / "DD Mon") */
   date: string;
-  dateType?: string;
   time: string;
   slotsTotal: number;
   slotsFilled: number;
@@ -46,9 +50,10 @@ export interface Application {
   userId: string;
   userName?: string;
   userPhone?: string;
-  status: 'Applied' | 'Under Review' | 'Accepted' | 'Rejected' | 'Cancelled' | 'Completed';
+  status: 'Applied' | 'Under Review' | 'Accepted' | 'Declined' | 'Cancelled' | 'Completed';
   appliedAt: string;
   paymentId?: string;
+  notes?: string | null;
   job?: Job;
 }
 

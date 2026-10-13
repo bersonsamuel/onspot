@@ -1,170 +1,209 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useApp } from '@/context/AppContext';
 import { ChatMessage } from '@/types';
 import { getSupabaseBrowserClient, isSupabaseConfigured } from '@/lib/supabase/client';
+
+/** Build a stable conversation_id from job_id + two participant UUIDs (sorted for symmetry) */
+function buildConversationId(jobId: string, userIdA: string, userIdB: string): string {
+  const sorted = [userIdA, userIdB].sort();
+  return `${jobId}__${sorted[0]}__${sorted[1]}`;
+}
 
 export default function ChatModal() {
   const { activeModal, activeModalShift, closeModal, userProfile } = useApp();
 
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
+  const [isSending, setIsSending] = useState(false);
+  const [failedMsg, setFailedMsg] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
+  const dealerId = activeModalShift?.applicants?.[0]?.id ?? ''; // fallback; real dealer_id from job row
   const dealerName = activeModalShift?.dealerName || 'Dealer';
   const dealerAvatarLetter = dealerName.charAt(0).toUpperCase() || 'D';
+  const isUUID = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+  const isUserAuth = isUUID(userProfile.id);
+
+  // Determine conversation id & receiver
+  const jobId = activeModalShift?.id || 'general';
+  // We use the shift's dealer_id if we can get it; otherwise use a placeholder so the UI still works
+  const convId = isUserAuth && isUUID(dealerId)
+    ? buildConversationId(jobId, userProfile.id, dealerId)
+    : `job:${jobId}`;
+  const receiverId = isUUID(dealerId) ? dealerId : null;
+
+  // Load history & subscribe to realtime — extracted to useCallback so it can be called on open
+  const loadHistory = useCallback(() => {
+    if (!isSupabaseConfigured() || !isUserAuth) return () => {};
+    const supabase = getSupabaseBrowserClient();
+
+    supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true })
+      .then(({ data: dbMsgs }) => {
+        if (dbMsgs) {
+           
+          const mapped: ChatMessage[] = dbMsgs.map((m: any) => ({
+            id: m.id,
+            conversationId: m.conversation_id,
+            senderId: m.sender_id,
+            senderName: m.sender_id === userProfile.id ? userProfile.name : dealerName,
+            receiverId: m.receiver_id || undefined,
+            message: m.message,
+            timestamp: m.created_at,
+            read: m.read || false,
+          }));
+          setMessages(mapped);
+        }
+      });
+
+    // Subscribe to new incoming messages
+    const channel = supabase
+      .channel(`chat:${convId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${convId}`,
+        },
+        (payload) => {
+           
+          const newMsg = payload.new as any;
+          if (newMsg.sender_id !== userProfile.id) {
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== newMsg.id),
+              {
+                id: newMsg.id,
+                conversationId: newMsg.conversation_id,
+                senderId: newMsg.sender_id,
+                senderName: dealerName,
+                receiverId: newMsg.receiver_id || undefined,
+                message: newMsg.message,
+                timestamp: newMsg.created_at,
+                read: false,
+              },
+            ]);
+
+            // Mark as read (only allowed to receiver via RLS)
+            supabase
+              .from('messages')
+              .update({ read: true })
+              .eq('id', newMsg.id)
+              .then(() => {});
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  // convId, dealerName, userProfile.id/name are stable within a modal session
+   
+  }, [convId, dealerName, userProfile.id, userProfile.name, isUserAuth]);
 
   useEffect(() => {
-    if (activeModal === 'chat-modal') {
-      const convId = activeModalShift?.id || 'conv-general';
-
-      // Default welcome message from dealer
-      const initial: ChatMessage[] = [
-        {
-          id: 'welcome-msg',
-          conversationId: convId,
-          senderId: 'dealer_system',
-          senderName: dealerName,
-          receiverId: userProfile.id,
-          message: `Hello! I am ${dealerName}. Thank you for your interest in "${activeModalShift?.title || 'our opening'}". How can I assist you?`,
-          timestamp: new Date().toISOString(),
-          read: true,
-        },
-      ];
-      setMessages(initial);
-
-      if (isSupabaseConfigured()) {
-        const supabase = getSupabaseBrowserClient();
-
-        // Fetch existing messages
-        supabase
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', convId)
-          .order('created_at', { ascending: true })
-          .then(({ data: dbMsgs }) => {
-            if (dbMsgs && dbMsgs.length > 0) {
-              const mapped: ChatMessage[] = dbMsgs.map((m: any) => ({
-                id: m.id,
-                conversationId: m.conversation_id,
-                senderId: m.sender_id,
-                senderName: m.sender_id === userProfile.id ? userProfile.name : dealerName,
-                receiverId: m.receiver_id || undefined,
-                message: m.message,
-                timestamp: m.created_at,
-                read: m.read || false,
-              }));
-              setMessages([...initial, ...mapped]);
-            }
-          });
-
-        // Realtime subscription for incoming messages
-        const channel = supabase
-          .channel(`chat:${convId}`)
-          .on(
-            'postgres_changes',
-            {
-              event: 'INSERT',
-              schema: 'public',
-              table: 'messages',
-              filter: `conversation_id=eq.${convId}`,
-            },
-            (payload) => {
-              const newMsg = payload.new as any;
-              if (newMsg.sender_id !== userProfile.id) {
-                setMessages((prev) => [
-                  ...prev,
-                  {
-                    id: newMsg.id,
-                    conversationId: newMsg.conversation_id,
-                    senderId: newMsg.sender_id,
-                    senderName: dealerName,
-                    receiverId: newMsg.receiver_id || undefined,
-                    message: newMsg.message,
-                    timestamp: newMsg.created_at,
-                    read: true,
-                  },
-                ]);
-              }
-            }
-          )
-          .subscribe();
-
-        return () => {
-          supabase.removeChannel(channel);
-        };
-      }
-    }
-  }, [activeModal, activeModalShift, dealerName, userProfile.id, userProfile.name]);
+    if (activeModal !== 'chat-modal') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setMessages([]);
+     
+    setFailedMsg(null);
+    const cleanup = loadHistory();
+    return cleanup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModal, activeModalShift?.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+  }, [messages]);
 
-  if (activeModal !== 'chat-modal') {
-    return null;
-  }
+  if (activeModal !== 'chat-modal') return null;
 
-  const handleSend = () => {
-    const text = inputMessage.trim();
-    if (!text) return;
+  const doSend = async (text: string) => {
+    if (!text.trim() || isSending) return;
 
-    const convId = activeModalShift?.id || 'conv-general';
-    const userMsg: ChatMessage = {
-      id: `msg-${Date.now()}`,
+    if (!isUserAuth) {
+      setFailedMsg('Please sign in to send messages.');
+      return;
+    }
+
+    if (!receiverId) {
+      setFailedMsg("We couldn't find the dealer's contact info. Please try again later.");
+      return;
+    }
+
+    setIsSending(true);
+    setFailedMsg(null);
+
+    // Optimistic message
+    const optimisticId = `opt-${Date.now()}`;
+    const optimistic: ChatMessage = {
+      id: optimisticId,
       conversationId: convId,
       senderId: userProfile.id,
       senderName: userProfile.name,
-      receiverId: activeModalShift?.dealerName || 'dealer',
+      receiverId,
       message: text,
       timestamp: new Date().toISOString(),
-      read: true,
+      read: false,
     };
-
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, optimistic]);
     setInputMessage('');
 
-    const isUserAuth = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userProfile.id);
-    if (isSupabaseConfigured() && isUserAuth) {
-      try {
-        const supabase = getSupabaseBrowserClient();
-        supabase
-          .from('messages')
-          .insert({
-            conversation_id: convId,
-            sender_id: userProfile.id,
-            message: text,
-          })
-          .then(() => {});
-      } catch (err) {
-        console.warn('Supabase message send error:', err);
-      }
-    }
+    try {
+      const supabase = getSupabaseBrowserClient();
+      const { data: inserted, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: convId,
+          sender_id: userProfile.id,
+          receiver_id: receiverId,
+          message: text,
+        })
+        .select()
+        .single();
 
-    // Simulated auto-reply
-    setTimeout(() => {
-      setIsTyping(true);
-      setTimeout(() => {
-        setIsTyping(false);
-        const replyMsg: ChatMessage = {
-          id: `reply-${Date.now()}`,
-          conversationId: convId,
-          senderId: 'dealer_system',
-          senderName: dealerName,
-          receiverId: userProfile.id,
-          message: `Thanks for your message! Looking forward to having you on shift for ${activeModalShift?.title || 'the gig'}.`,
-          timestamp: new Date().toISOString(),
-          read: true,
-        };
-        setMessages((prev) => [...prev, replyMsg]);
-      }, 1500);
-    }, 600);
+      if (error) throw error;
+
+      // Replace optimistic message with real one from DB
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === optimisticId
+            ? { ...m, id: inserted.id, timestamp: inserted.created_at }
+            : m
+        )
+      );
+    } catch {
+      // Remove optimistic message and show retry
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+      setFailedMsg(text);
+    } finally {
+      setIsSending(false);
+    }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+  const handleSend = () => {
+    const text = inputMessage.trim();
+    if (text) doSend(text);
+  };
+
+  const handleRetry = () => {
+    if (failedMsg) {
+      const text = failedMsg;
+      setFailedMsg(null);
+      doSend(text);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
       handleSend();
     }
   };
@@ -173,13 +212,20 @@ export default function ChatModal() {
     <div
       className={`chat-modal-overlay ${activeModal === 'chat-modal' ? 'open' : ''}`}
       id="chat-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Chat with ${dealerName}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) closeModal('chat-modal');
       }}
     >
       <div className="chat-container">
         <div className="chat-header">
-          <button className="chat-back-btn" onClick={() => closeModal('chat-modal')}>
+          <button
+            className="chat-back-btn"
+            onClick={() => closeModal('chat-modal')}
+            aria-label="Close chat"
+          >
             ‹
           </button>
           <div className="chat-avatar" id="chat-avatar-text">
@@ -190,12 +236,19 @@ export default function ChatModal() {
               {dealerName}
             </div>
             <div className="chat-user-status" id="chat-user-status">
-              Online
+              {isUserAuth ? 'Online' : 'Sign in to chat'}
             </div>
           </div>
         </div>
 
         <div className="chat-messages" id="chat-messages">
+          {messages.length === 0 && (
+            <div style={{ padding: '24px 16px', textAlign: 'center', opacity: 0.5, fontSize: '14px' }}>
+              {isUserAuth
+                ? 'No messages yet. Say hello!'
+                : 'Sign in to start chatting with the employer.'}
+            </div>
+          )}
           {messages.map((msg) => {
             const isSent = msg.senderId === userProfile.id;
             const timeStr = new Date(msg.timestamp).toLocaleTimeString([], {
@@ -212,11 +265,28 @@ export default function ChatModal() {
               </div>
             );
           })}
-          {isTyping && (
-            <div className="chat-typing" id="chat-typing-indicator" style={{ padding: '0 16px' }}>
-              typing...
+
+          {failedMsg && (
+            <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', color: 'var(--danger, #f87171)', flex: 1 }}>
+                ⚠️ Message failed to send.
+              </span>
+              <button
+                onClick={handleRetry}
+                style={{
+                  fontSize: '13px',
+                  color: 'var(--accent)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px 8px',
+                }}
+              >
+                Retry
+              </button>
             </div>
           )}
+
           <div ref={messagesEndRef} />
         </div>
 
@@ -225,25 +295,37 @@ export default function ChatModal() {
             type="text"
             className="chat-input"
             id="chat-input"
-            placeholder="Type a message..."
+            placeholder={isUserAuth ? 'Type a message…' : 'Sign in to chat'}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
+            disabled={!isUserAuth || isSending}
+            aria-label="Message input"
           />
-          <button className="chat-send-btn" onClick={handleSend}>
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
+          <button
+            className="chat-send-btn"
+            onClick={handleSend}
+            disabled={!isUserAuth || isSending || !inputMessage.trim()}
+            aria-label="Send message"
+          >
+            {isSending ? (
+              <span style={{ fontSize: '12px' }}>…</span>
+            ) : (
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            )}
           </button>
         </div>
       </div>

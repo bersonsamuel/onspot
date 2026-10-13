@@ -13,9 +13,13 @@ export default function ProfileSetupModal() {
 
   useEffect(() => {
     if (activeModal === 'profile-modal') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setName(userProfile.name);
+       
       setPhone(userProfile.phone);
+       
       setCity(userProfile.city);
+       
       setUpiId(userProfile.upiId);
     }
   }, [activeModal, userProfile]);
