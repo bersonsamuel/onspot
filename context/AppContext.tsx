@@ -177,6 +177,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           role: profile.role === 'dealer' ? 'dealer' : 'seeker',
           rating: Number(profile.rating) || 5.0,
           avatarUrl: profile.avatar_url || EMPTY_PROFILE.avatarUrl,
+          walletBalance: Number(profile.wallet_balance) || 0,
         };
         setUserProfile(updated);
         setUserRole(updated.role === 'dealer' ? 'dealer' : 'seeker');
@@ -999,5 +1000,3 @@ export function useApp() {
   return context;
 }
 
-/** @deprecated Use EMPTY_PROFILE instead — exported for any component that had direct reference */
-export const defaultUserProfile = EMPTY_PROFILE;

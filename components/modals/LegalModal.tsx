@@ -14,6 +14,9 @@ export default function LegalModal() {
     <div
       className={`modal-overlay ${activeModal === 'legal-modal' ? 'open' : ''}`}
       id="legal-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="legal-modal-title"
       onClick={(e) => {
         if (e.target === e.currentTarget) closeModal('legal-modal');
       }}
@@ -21,7 +24,7 @@ export default function LegalModal() {
       <div className="modal-card">
         <div className="modal-header">
           <h3 id="legal-modal-title">Terms &amp; Conditions</h3>
-          <button className="close-btn" onClick={() => closeModal('legal-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('legal-modal')}>
             ✕
           </button>
         </div>

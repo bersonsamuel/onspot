@@ -418,3 +418,9 @@ BEGIN
   END IF;
 END;
 $$;
+-- ----------------------------------------------------------------------------
+-- 11. ADD wallet_balance TO profiles (escrow balance in INR)
+-- ----------------------------------------------------------------------------
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS wallet_balance NUMERIC(12, 2) NOT NULL DEFAULT 0
+    CHECK (wallet_balance >= 0);

@@ -75,6 +75,8 @@ export interface UserProfile {
   role: 'seeker' | 'dealer' | 'admin';
   rating: number;
   avatarUrl: string;
+  /** Escrow wallet balance in INR paise or full rupees, from the DB */
+  walletBalance?: number;
 }
 
 export interface ChatMessage {

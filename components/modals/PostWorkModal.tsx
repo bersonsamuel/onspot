@@ -176,7 +176,7 @@ export default function PostWorkModal() {
   };
 
   return (
-    <div className="modal-overlay open" id="post-modal">
+    <div role="dialog" aria-modal="true" className="modal-overlay open" id="post-modal">
       <div className="modal-card">
         <div
           className="modal-header"

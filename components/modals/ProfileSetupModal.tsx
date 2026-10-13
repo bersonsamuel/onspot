@@ -63,7 +63,7 @@ export default function ProfileSetupModal() {
             </svg>
             Profile &amp; Payout Settings
           </h3>
-          <button className="close-btn" onClick={() => closeModal('profile-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('profile-modal')}>
             ✕
           </button>
         </div>

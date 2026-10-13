@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React from 'react';
@@ -24,7 +25,7 @@ export default function ShiftDetailsModal() {
   const itemFallback = media.fallback;
 
   return (
-    <div className="modal-overlay open" id="details-modal">
+    <div role="dialog" aria-modal="true" className="modal-overlay open" id="details-modal">
       <div className="modal-card">
         <div className="modal-header">
           <h3>
@@ -41,7 +42,7 @@ export default function ShiftDetailsModal() {
             </svg>
             Shift Details & Application
           </h3>
-          <button className="close-btn" onClick={closeAllModals}>
+          <button className="close-btn" aria-label="Close" onClick={closeAllModals}>
             ✕
           </button>
         </div>

@@ -34,7 +34,7 @@ supabase gen types typescript --local > types/database.ts
 | File | Description |
 |---|---|
 | `20261013000000_initial_schema.sql` | Tables, basic RLS policies, auth trigger |
-| `20261013000100_fixes.sql` | notes column, start_at/end_at, indexes, triggers, hardened RLS |
+| `20261013000100_fixes.sql` | notes column, start_at/end_at, wallet_balance, indexes, triggers, hardened RLS |
 
 ## Seed Data
 

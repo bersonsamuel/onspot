@@ -20,6 +20,7 @@ export interface Database {
           role: 'seeker' | 'dealer' | 'admin';
           rating: number | null;
           avatar_url: string | null;
+          wallet_balance: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -33,6 +34,7 @@ export interface Database {
           role?: 'seeker' | 'dealer' | 'admin';
           rating?: number | null;
           avatar_url?: string | null;
+          wallet_balance?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -46,6 +48,7 @@ export interface Database {
           role?: 'seeker' | 'dealer' | 'admin';
           rating?: number | null;
           avatar_url?: string | null;
+          wallet_balance?: number | null;
           created_at?: string;
           updated_at?: string;
         };

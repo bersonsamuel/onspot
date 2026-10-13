@@ -3,49 +3,62 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 
+/**
+ * PaymentModal — Shown for shifts that have a registration fee.
+ *
+ * This is a payout-confirmation screen, NOT a payment processor.
+ * Workers get paid; they do not pay to apply.
+ * The UPI field here records WHERE the worker wants to receive payout.
+ *
+ * Card/CVV fields were removed — we must never capture raw card data
+ * through our own forms (PCI-DSS compliance).
+ */
 export default function PaymentModal() {
-  const { activeModal, activeModalShift, closeModal, applyForJob, showToast } = useApp();
-  const [method, setMethod] = useState<'upi' | 'card'>('upi');
-  const [upiId, setUpiId] = useState('');
-  const [cardNum, setCardNum] = useState('');
-  const [cardExp, setCardExp] = useState('');
-  const [cardCvv, setCardCvv] = useState('');
-  const [cardName, setCardName] = useState('');
-  const [processing, setProcessing] = useState(false);
+  const { activeModal, activeModalShift, closeModal, applyForJob, showToast, userProfile } = useApp();
+  const [upiId, setUpiId] = useState(userProfile.upiId || '');
+  const [confirming, setConfirming] = useState(false);
 
-  if (activeModal !== 'payment-modal') {
-    return null;
-  }
+  if (activeModal !== 'payment-modal') return null;
 
-  const handleProcessPayment = () => {
-    setProcessing(true);
-    setTimeout(() => {
-      setProcessing(false);
-      showToast('Payment Successful! Application Submitted.');
+  const handleConfirm = async () => {
+    if (!upiId.trim() || !upiId.includes('@')) {
+      showToast('⚠️ Please enter a valid UPI ID (e.g. name@okbank).');
+      return;
+    }
+
+    setConfirming(true);
+    try {
       if (activeModalShift) {
-        applyForJob(activeModalShift);
+        await applyForJob(activeModalShift);
       }
       closeModal('payment-modal');
-    }, 1500);
+    } finally {
+      setConfirming(false);
+    }
   };
 
   return (
     <div
       className={`modal-overlay ${activeModal === 'payment-modal' ? 'open' : ''}`}
       id="payment-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Confirm payout details"
       onClick={(e) => {
         if (e.target === e.currentTarget) closeModal('payment-modal');
       }}
     >
       <div className="modal-card">
         <div className="modal-header">
-          <h3>Secure Payment</h3>
-          <button className="close-btn" onClick={() => closeModal('payment-modal')}>
+          <h3>Confirm Payout Details</h3>
+          <button className="close-btn" onClick={() => closeModal('payment-modal')} aria-label="Close">
             ✕
           </button>
         </div>
+
+        {/* Earnings summary */}
         <div style={{ textAlign: 'center', margin: '0 0 20px 0' }}>
-          <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Amount to Pay</div>
+          <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>You will earn</div>
           <div
             style={{
               fontSize: '28px',
@@ -57,92 +70,40 @@ export default function PaymentModal() {
           >
             {activeModalShift?.pay || '₹0'}
           </div>
-        </div>
-        <div className="form-group">
-          <label>Payment Method</label>
-          <select
-            className="form-control"
-            id="payment-method-select"
-            value={method}
-            onChange={(e) => setMethod(e.target.value as 'upi' | 'card')}
-          >
-            <option value="upi">UPI (GPay, PhonePe, Paytm, BHIM)</option>
-            <option value="card">Debit / Credit Card</option>
-          </select>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            {activeModalShift?.instantPay ? '⚡ Instant UPI payout after shift' : 'Payout within 24 hours'}
+          </div>
         </div>
 
-        {method === 'upi' ? (
-          <div id="payment-upi-fields" className="form-group">
-            <label>Enter UPI ID</label>
-            <input
-              type="text"
-              className="form-control"
-              id="payment-upi-id"
-              placeholder="e.g. name@okbank"
-              value={upiId}
-              onChange={(e) => setUpiId(e.target.value)}
-            />
+        {/* UPI payout address */}
+        <div className="form-group">
+          <label htmlFor="payout-upi-id">Your UPI ID (for receiving payment)</label>
+          <input
+            type="text"
+            className="form-control"
+            id="payout-upi-id"
+            placeholder="e.g. yourname@okbank"
+            value={upiId}
+            onChange={(e) => setUpiId(e.target.value)}
+            autoComplete="off"
+            disabled={confirming}
+          />
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+            Payment will be sent to this UPI ID after you complete the shift.
           </div>
-        ) : (
-          <div id="payment-card-fields">
-            <div className="form-group">
-              <label>Card Number</label>
-              <input
-                type="text"
-                className="form-control"
-                id="payment-card-num"
-                placeholder="XXXX XXXX XXXX XXXX"
-                value={cardNum}
-                onChange={(e) => setCardNum(e.target.value)}
-              />
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Expiry Date</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  id="payment-card-exp"
-                  placeholder="MM/YY"
-                  value={cardExp}
-                  onChange={(e) => setCardExp(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label>CVV</label>
-                <input
-                  type="password"
-                  className="form-control"
-                  id="payment-card-cvv"
-                  placeholder="123"
-                  value={cardCvv}
-                  onChange={(e) => setCardCvv(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="form-group">
-              <label>Card Holder Name</label>
-              <input
-                type="text"
-                className="form-control"
-                id="payment-card-name"
-                placeholder="Name on card"
-                value={cardName}
-                onChange={(e) => setCardName(e.target.value)}
-              />
-            </div>
-          </div>
-        )}
+        </div>
 
         <button
           type="button"
+          id="confirm-payout-btn"
           className="btn-action-primary"
-          style={{ width: '100%', justifyContent: 'center', padding: '11px' }}
-          disabled={processing}
-          onClick={handleProcessPayment}
+          style={{ width: '100%', justifyContent: 'center', padding: '11px', marginTop: '8px' }}
+          disabled={confirming}
+          onClick={handleConfirm}
         >
-          {processing ? 'Processing...' : 'Pay Securely'}
+          {confirming ? 'Confirming…' : 'Confirm & Apply'}
         </button>
+
         <div
           style={{
             fontSize: '11px',
@@ -151,7 +112,7 @@ export default function PaymentModal() {
             marginTop: '10px',
           }}
         >
-          🔒 This is a secure sandbox environment. Do not enter real banking credentials.
+          🔒 Your UPI ID is stored securely and only shared with the employer after hiring.
         </div>
       </div>
     </div>

@@ -66,7 +66,7 @@ export default function NotificationPreferencesModal() {
       >
         <div className="modal-header">
           <h3>⚙️ Notification Preferences</h3>
-          <button className="close-btn" onClick={() => closeModal('notification-prefs-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('notification-prefs-modal')}>
             ✕
           </button>
         </div>

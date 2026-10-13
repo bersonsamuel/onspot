@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React from 'react';
@@ -53,7 +54,7 @@ export default function ProfileDrawer() {
             User Profile & Status
           </div>
           <button
-            className="close-btn"
+            className="close-btn" aria-label="Close"
             onClick={closeProfileDrawer}
             title="Close profile drawer"
           >
@@ -130,7 +131,7 @@ export default function ProfileDrawer() {
             </div>
             <div>
               <span className="rating-pill" id="user-rating-box">
-                ★ {userProfile.rating} ({completedJobs.length || 24} Gigs Completed)
+                ★ {userProfile.rating} ({completedJobs.length} Gigs Completed)
               </span>
             </div>
           </div>
@@ -139,15 +140,15 @@ export default function ProfileDrawer() {
           <div className="drawer-stats-grid">
             <div className="stat-item">
               <div className="stat-num" id="drawer-completed-count">
-                {completedJobs.length || 24}
+                {completedJobs.length}
               </div>
               <div className="stat-label">Completed Jobs</div>
             </div>
             <div className="stat-item">
               <div className="stat-num" style={{ color: 'var(--mint-primary)' }}>
-                100%
+                ★ {userProfile.rating || '—'}
               </div>
-              <div className="stat-label">On-Time Score</div>
+              <div className="stat-label">Rating</div>
             </div>
           </div>
 
@@ -299,7 +300,9 @@ export default function ProfileDrawer() {
                 >
                   Available Balance
                 </div>
-                <div className="wallet-num">₹4,200</div>
+                <div className="wallet-num">
+                  ₹{(userProfile.walletBalance ?? 0).toLocaleString('en-IN')}
+                </div>
               </div>
               <button
                 className="btn-wallet-withdraw"

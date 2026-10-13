@@ -164,7 +164,7 @@ export default function FilterModal() {
             </svg>
             Filter Shifts
           </h3>
-          <button className="close-btn" onClick={() => closeModal('filter-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('filter-modal')}>
             ✕
           </button>
         </div>

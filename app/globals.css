@@ -91,7 +91,7 @@ body {
     sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   line-height: 1.5;
@@ -399,7 +399,7 @@ body::before {
   right: 0;
   width: 380px;
   max-width: 92vw;
-  height: 100vh;
+  height: 100dvh;
   background: var(--bg-surface);
   border-left: 1px solid var(--border-mint);
   box-shadow:
@@ -1963,7 +1963,7 @@ html[data-theme="light"] img.brand-logo-img {
   right: -100%;
   width: 400px;
   max-width: 100%;
-  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-surface);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.5);
   z-index: 1005; /* Above profile drawer */
@@ -2556,7 +2556,7 @@ input:checked + .toggle-slider:before {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-base, #0a0c0b);
   z-index: 99999;
   display: flex;
@@ -2652,7 +2652,7 @@ input:checked + .toggle-slider:before {
   top: 0;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(4px);
   z-index: 10000;
@@ -2835,8 +2835,8 @@ input:checked + .toggle-slider:before {
 @media (max-width: 768px) {
   .chat-container {
     width: 100vw;
-    height: 100vh;
-    max-height: 100vh;
+    height: 100dvh;
+    max-height: 100dvh;
     border-radius: 0;
     border: none;
   }

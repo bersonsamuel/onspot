@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -172,7 +173,7 @@ export default function CameraModal() {
       <div className="modal-card" style={{ textAlign: 'center' }}>
         <div className="modal-header">
           <h3>Set Profile Photo</h3>
-          <button className="close-btn" onClick={handleClose}>
+          <button className="close-btn" aria-label="Close" onClick={handleClose}>
             ✕
           </button>
         </div>

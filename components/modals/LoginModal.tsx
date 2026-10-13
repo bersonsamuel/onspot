@@ -61,8 +61,8 @@ export default function LoginModal() {
           <h3>{isSignUp ? 'Create an OnSpot Account' : 'Sign In to OnSpot'}</h3>
           <button
             className="close-btn"
-            onClick={() => closeModal('login-modal')}
             aria-label="Close sign-in modal"
+            onClick={() => closeModal('login-modal')}
           >
             ✕
           </button>

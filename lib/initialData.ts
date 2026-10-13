@@ -1,39 +1,32 @@
-import { Job } from '@/types';
+/**
+ * Static category metadata and utility helpers.
+ * All job data comes from Supabase — see AppContext for data fetching.
+ */
 
 export const CATEGORY_MEDIA = {
   Catering: {
-    src:
-      "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=80",
-    fallback:
-      "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=80",
+    src: "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=80",
+    fallback: "https://images.unsplash.com/photo-1555244162-803834f70033?auto=format&fit=crop&w=800&q=80",
     alt: "Catering banquet food buffet",
   },
   Promotions: {
-    src:
-      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
-    fallback:
-      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+    src: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+    fallback: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
     alt: "Brand promotion exhibition launch",
   },
   Pamphlet: {
-    src:
-      "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
-    fallback:
-      "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
+    src: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
+    fallback: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
     alt: "Flyer and pamphlet distribution",
   },
   Ushering: {
-    src:
-      "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80",
-    fallback:
-      "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80",
+    src: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80",
+    fallback: "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=800&q=80",
     alt: "VIP ushering & hospitality service",
   },
   Setup: {
-    src:
-      "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80",
-    fallback:
-      "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80",
+    src: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80",
+    fallback: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80",
     alt: "Stage sound & event setup",
   },
 };
@@ -86,13 +79,3 @@ export function getDateLabel(isoDate?: string | null): string {
     year: 'numeric',
   });
 }
-
-/**
- * INITIAL_SHIFTS / INITIAL_DEALER_POSTS:
- * Removed — all job data comes from Supabase.
- * Keeping these as empty arrays so existing imports don't break
- * while components are migrated to real data.
- */
-export const INITIAL_SHIFTS: Job[] = [];
-export const INITIAL_DEALER_POSTS: Job[] = [];
-

@@ -28,7 +28,7 @@ export default function DeleteAccountModal() {
       <div className="modal-card">
         <div className="modal-header">
           <h3>Delete Account?</h3>
-          <button className="close-btn" onClick={() => closeModal('delete-account-modal')}>
+          <button className="close-btn" aria-label="Close" onClick={() => closeModal('delete-account-modal')}>
             ✕
           </button>
         </div>
